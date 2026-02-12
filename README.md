@@ -16,8 +16,10 @@ This repository contains comprehensive technical documentation for modern web de
 - **[Playwright Testing Guide](setup/testing-playwright.md)** - Complete production-grade guide for testing React and vanilla JS applications using only Playwright
 
 ### 🔧 Refactoring & Migration
-- **[ESLint to Biome Migration](refact/migrate/eslint2biome.md)** - Step-by-step guide to migrate from ESLint to Biome with EditorConfig compatibility
 - **[React Router to TanStack Router Migration](refact/migrate/react-router2tanstack-router.md)** - Comprehensive migration guide with concrete implementation steps
+
+### 🛠️ Setup & Configuration
+- **[Biome Setup Guide](setup/biome.md)** - Complete guide to setting up Biome for JavaScript/TypeScript projects with EditorConfig compatibility
 
 ## Philosophy
 
