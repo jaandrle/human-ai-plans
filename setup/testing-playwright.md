@@ -1,8 +1,7 @@
 # Playwright testing
 Below is a **complete, production-grade guide** to testing React (and vanilla JS) using **only Playwright**, aligned with the philosophy demonstrated in Chris Ferdinandi’s TDD demo and the disclosure example you referenced.
 
-## Based on
-To reinforce this architecture:
+## Inspiration
 
 ### Chris Ferdinandi
 - https://github.com/cferdinandi/tdd
@@ -308,17 +307,17 @@ name: Tests
 on: [push]
 
 jobs:
-	test:
-		runs-on: ubuntu-latest
-		steps:
-			- uses: actions/checkout@v4
-			- uses: actions/setup-node@v4
-				with:
-					node-version: 20
-			- run: npm ci
-			- run: npx playwright install --with-deps
-			- run: npm run test
-			- run: npm run test:ct
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run test
+      - run: npm run test:ct
 ```
 
 
