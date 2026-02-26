@@ -1,14 +1,39 @@
-# Playwright testing
-Below is a **complete, production-grade guide** to testing React (and vanilla JS) using **only Playwright**, aligned with the philosophy demonstrated in Chris Ferdinandi’s TDD demo and the disclosure example you referenced.
+# 🚀 Playwright Testing (Rollout) Plan
 
-## Inspiration
+**From Zero → Structured Coverage**
+
+# Overview
+
+This plan defines a **single-tool, browser-first testing strategy** using Playwright for:
+
+- Pure business logic
+- React component testing
+- Critical-path E2E
+- CI enforcement
+
+It prioritizes:
+
+- Real browser behavior (no jsdom)
+- Observable outcomes over implementation details
+- High ROI first (logic → components → E2E)
+- Low flakiness
+- CI-backed regression safety
+
+The goal is not 100% coverage.
+The goal is **stable, meaningful protection of business-critical behavior**.
+
+# Inspiration
+
+This approach aligns with the principles demonstrated by:
 
 ### Chris Ferdinandi
 - https://github.com/cferdinandi/tdd
 - “You’re Doing JS Testing Wrong”
 - His TDD repo walkthrough (the disclosure demo)
 
-### Playwright Official
+Key idea: test behavior users can observe — not internal mechanics.
+
+### Playwright Official Guidance
 - https://playwright.dev/docs/intro
 - “Playwright Component Testing”
 - “Testing Web Apps with Playwright”
@@ -19,202 +44,226 @@ Below is a **complete, production-grade guide** to testing React (and vanilla JS
 - “Testing Implementation Details (Why Not To)”
 - “Write Tests. Not Too Many. Mostly Integration.”
 
+Core alignment:
 
-## Architectural Summary
-This setup gives you:
+> Test behavior. Avoid implementation coupling.
+> Treat the browser as the public API.
 
-- Real browser behavior
-- Co-located tests
-- Zero jsdom
-- Single toolchain
-- Behavioral confidence
-- Safer refactors
+# Core Testing Philosophy
 
-It scales from small components to large apps cleanly.
+### Test:
 
+- Visible UI
+- ARIA roles + attributes
+- User-triggered state changes
+- Navigation outcomes
+- Business rules
 
-# 1. Testing Philosophy (From the Talk & Demo)
+### Do NOT test:
 
-The disclosure example in the repo follows these principles:
+- Internal state
+- Private functions directly (unless pure logic)
+- Implementation details
+- CSS selectors (unless unavoidable)
 
-- Test what users can observe
-- Interact via real DOM
-- Avoid testing private functions
-- Avoid mocking internal logic
-- Use the browser as the source of truth
+If a user cannot observe it, it likely does not belong in a behavioral test.
 
-In short:
+# Phase 0 — Baseline Assessment (1–2 Days)
 
-> Treat the browser as your public API.
+## Objective
 
-That means:
+Define what must be protected first.
 
-- Click buttons
-- Assert visible text
-- Assert ARIA attributes
-- Assert behavior changes
+## Checklist
 
-Not:
+- [ ] Identify critical flows (auth, payments, creation flows)
+- [ ] Identify high-risk modules (complex logic, bug-prone)
+- [ ] Identify external boundaries (APIs, storage, 3rd-party)
+- [ ] Categorize:
 
-- Checking internal state
-- Importing private functions
-- Spying on implementation
+	* Pure logic
+	* UI components
+	* Feature flows
+	* Full journeys
+- [ ] Define business-critical failure cases
 
+## Output
 
-# 2 Install Playwright (Single Tool Setup)
+- Prioritized test target list
+- Agreed initial scope
+	(Do not attempt full coverage immediately)
 
-```Bash
-npm init -y
-npm install -D @playwright/test @playwright/experimental-ct-react
+# Phase 1 — Foundation Setup (Day 2–3)
+
+## Install
+
+```bash
+npm install -D @playwright/test
 npx playwright install
 ```
 
-We will use:
+If React component testing:
 
-- `@playwright/test` → E2E + logic tests
-- `@playwright/experimental-ct-react` → React component tests
-
-No Vitest. No Jest. No jsdom.
-
-# 3 Project Structure (Co-Located Tests)
-
-Recommended:
-
-```code
-src/
-	components/
-		Disclosure/
-			Disclosure.tsx
-			Disclosure.spec.tsx
-		Counter/
-			Counter.tsx
-			Counter.spec.tsx
-	utils/
-		formatDate.ts
-		formatDate.spec.ts
-playwright.config.ts
-playwright-ct.config.ts
+```bash
+npm install -D @playwright/experimental-ct-react
 ```
 
-Tests live beside code.
+## Minimal Config
 
-
-# 4 Configurations
-
-## A) playwright.config.ts (Logic + E2E)
-
-```TypeScript
-import { defineConfig } from "@playwright/test";
+```ts
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-	testDir: "./src",
-	testMatch: /.*\.spec\.ts$/,
+	testDir: './src',
+	retries: process.env.CI ? 2 : 0,
 	use: {
-		baseURL: "http://localhost:3000",
-		headless: true,
+		trace: 'on-first-retry',
 	},
 });
 ```
 
-This runs:
+## CI Requirements (Mandatory)
 
-- Pure logic tests
-- Browser navigation tests
+- [ ] Run on every PR
+- [ ] Retries enabled in CI only
+- [ ] Trace artifacts stored on failure
+- [ ] Build fails on test failure
 
+No CI = no regression protection.
 
-## B) playwright-ct.config.ts (React Components)
+# Phase 2 — Start with High-ROI Tests
 
-```TypeScript
-import { defineConfig } from "@playwright/experimental-ct-react";
+Do **not** start with large E2E.
 
-export default defineConfig({
+Begin with the lowest reliable layer.
 
-	testDir: "./src",
+## Layer 1 — Pure Logic Tests (Fastest ROI)
 
-	testMatch: /.*\.spec\.tsx$/,
+### Test:
 
+- Utility functions
+- Business rules
+- Validation logic
+- Data transformations
+- Config builders
+
+### Why:
+
+- Deterministic
+- No flakiness
+- Immediate regression protection
+
+### Example
+
+```ts
+import { test, expect } from '@playwright/test';
+import { calculateTotal } from './pricing';
+
+test('adds tax correctly', () => {
+	expect(calculateTotal(100, 0.2)).toBe(120);
+});
+
+test('returns zero when base is zero', () => {
+	expect(calculateTotal(0, 0.2)).toBe(0);
 });
 ```
 
-This mounts React components in real Chromium.
+Goal: protect core business rules first.
 
+## Layer 2 — Component Tests (React)
 
-# 5 Example: React Disclosure Component
+Render in real browser via Playwright CT.
 
-### Component
+### Test:
 
-```TypeScript
-// src/components/Disclosure/Disclosure.tsx
+- Disabled/enabled states
+- Conditional rendering
+- Validation feedback
+- ARIA behavior
+- Keyboard interaction
 
-import { useState } from "react";
+### Rules
 
-export function Disclosure({ title, children }) {
-	const [open, setOpen] = useState(false);
+- Prefer `getByRole`
+- One behavior per test
+- Assert observable outcomes only
+- Avoid brittle selectors
 
-	return (
-		<div>
-			<button
-				aria-expanded={open}
-				onClick={() => setOpen(o => !o)}
-			>
-				{title}
-			</button>
-			{open && (
-				<div role="region">
-					{children}
-				</div>
-			)}
-		</div>
-	);
-}
-```
+### Example
 
-# 6 Component Test (Like Chris’s Disclosure Demo)
+```ts
+test('submit enables when form becomes valid', async ({ mount }) => {
+	const component = await mount(<LoginForm />);
 
-```TypeScript
-// src/components/Disclosure/Disclosure.spec.tsx
+	const email = component.getByLabel('Email');
+	const password = component.getByLabel('Password');
+	const submit = component.getByRole('button', { name: 'Submit' });
 
-import { test, expect } from "@playwright/experimental-ct-react";
-import { Disclosure } from "./Disclosure";
+	await expect(submit).toBeDisabled();
 
-test("disclosure toggles content", async ({ mount }) => {
-	const component = await mount(
-		<Disclosure title="More info">
-			Hidden content
-		</Disclosure>
-	);
+	await email.fill('user@test.com');
+	await password.fill('password123');
 
-	const button = component.getByRole("button", { name: "More info" });
-	await expect(button).toHaveAttribute("aria-expanded", "false");
-	await button.click();
-	await expect(button).toHaveAttribute("aria-expanded", "true");
-	await expect(component.getByRole("region")).toContainText("Hidden content");
+	await expect(submit).toBeEnabled();
 });
 ```
 
-Notice:
+Goal: lock UI behavior without full app complexity.
 
-- We check ARIA attributes
-- We check visible content
-- We do not inspect state
+# Phase 3 — Critical Path E2E (Minimal, Strategic)
 
-This mirrors the structure of the disclosure example you linked.
+Only after lower layers exist.
 
+## Select 3–5 journeys:
 
-# 7 Vanilla JS Example (Matching Demo Style)
+- [ ] Login
+- [ ] Core workflow
+- [ ] Payment / submission
+- [ ] Logout
+- [ ] One high-risk edge case
 
-If you’re testing a non-React disclosure like in the repo:
+## Hard Rules
+
+- ❌ No `waitForTimeout`
+- ❌ No CSS selectors by default
+- ❌ No testing internal state
+- ✅ Use role/label queries
+- ✅ Mock external APIs at boundaries
+- ✅ Assert user-visible outcomes
+
+### Example
+
+```ts
+test('user logs in and sees dashboard', async ({ page }) => {
+	await page.goto('/login');
+
+	await page.getByLabel('Email').fill('user@test.com');
+	await page.getByLabel('Password').fill('password');
+	await page.getByRole('button', { name: 'Login' }).click();
+
+	await expect(page).toHaveURL(/dashboard/);
+	await expect(
+		page.getByRole('heading', { name: 'Dashboard' })
+	).toBeVisible();
+});
+```
+
+Goal: protect revenue-critical flows — not every screen.
+
+## Layer 2 — Component Tests (Vanilla JS)
+
+If you’re testing a non-React components (Web Components) like:
 
 ```JavaScript
 // disclosure.js
 
 export function initDisclosure(button) {
-	const content = document.getElementById(button.getAttribute("aria-controls"));
-	button.addEventListener("click", () => {
-		const expanded = button.getAttribute("aria-expanded") === "true";
-		button.setAttribute("aria-expanded", String(!expanded));
-		content.hidden = expanded;
-	});
+		const content = document.getElementById(button.getAttribute("aria-controls"));
+		button.addEventListener("click", () => {
+				const expanded = button.getAttribute("aria-expanded") === "true";
+				button.setAttribute("aria-expanded", String(!expanded));
+				content.hidden = expanded;
+		});
 }
 ```
 
@@ -224,110 +273,137 @@ Test:
 import { test, expect } from "@playwright/test";
 
 test("vanilla disclosure toggles", async ({ page }) => {
-	await page.setContent(`
-		<button aria-expanded="false" aria-controls="content">
-			Toggle
-		</button>
-		<div id="content" hidden>
-			Hello
-		</div>
-	`);
-	await page.addScriptTag({ path: "src/disclosure.js", type: "module" });
-	await page.evaluate(() => {
-		const button = document.querySelector("button");
-		window.initDisclosure(button);
-	});
+		await page.setContent(`
+				<button aria-expanded="false" aria-controls="content">
+						Toggle
+				</button>
+				<div id="content" hidden>
+						Hello
+				</div>
+		`);
+		await page.addScriptTag({ path: "src/disclosure.js", type: "module" });
+		await page.evaluate(() => {
+				const button = document.querySelector("button");
+				window.initDisclosure(button);
+		});
 
-	const button = page.getByRole("button");
-	await button.click();
-	await expect(button).toHaveAttribute("aria-expanded", "true");
-	await expect(page.getByText("Hello")).toBeVisible();
+		const button = page.getByRole("button");
+		await button.click();
+		await expect(button).toHaveAttribute("aria-expanded", "true");
+		await expect(page.getByText("Hello")).toBeVisible();
 });
 ```
 
-No special HTML file required.
+No special HTML file required. You can follow the same rules as above for React.
 
+# Phase 4 — Stability Hardening
 
-# 8 Pure Logic Test (Still Playwright)
+Audit for flakiness.
 
-```TypeScript
-// formatDate.ts
-export function formatDate(date: Date) {
-	return date.toISOString().split("T")[0];
-}
+## Must Fix Immediately
+
+- [ ] `waitForTimeout`
+- [ ] Missing `await`
+- [ ] Shared state between tests
+- [ ] Uncontrolled real network calls
+- [ ] Cross-test data leakage
+
+## Replace With
+
+- Auto-waiting assertions
+- `page.route()` for API boundary mocks
+- Isolated fixtures
+- Deterministic test data
+
+# Phase 5 — Structure & Organization
+
+## Suggested Layout
+
+```
+src/
+	utils/
+		math.ts
+		math.test.ts
+	components/
+		Button.tsx
+		Button.test.tsx
+tests/
+	e2e/
+		login.spec.ts
 ```
 
-```TypeScript
-// formatDate.spec.ts
-import { test, expect } from "@playwright/test";
-import { formatDate } from "./formatDate";
-test("formats ISO date", () => {
-	expect(formatDate(new Date("2024-01-01")))
-		.toBe("2024-01-01");
-});
+## Principles
+
+- One behavior per test
+- Small setup blocks
+- Clear naming
+- Reusable fixtures
+- No duplicate coverage across layers
+
+Bad:
+
+```ts
+test('button works', ...)
 ```
 
-Runs in Node.
+Good:
 
-
-# 9 Testing API Calls (Without Mocking Everything)
-- Mock boundaries
-- Not internal logic
-
-```TypeScript
-test("loads data", async ({ mount, page }) => {
-	await page.route("/api/user", route =>
-		route.fulfill({
-			json: { name: "Chris" }
-		})
-	);
-
-	const component = await mount(<UserProfile />);
-
-	await expect(component).toContainText("Chris");
-});
+```ts
+test('submit button enables when form is valid', ...)
 ```
 
-# 10 CI Setup (GitHub Actions)
-For example:
+# Phase 6 — Intentional Edge Expansion
 
-`package.json`:
-```JSON
-{
-	"scripts": {
-		"test": "playwright test",
-		"test:ct": "playwright test -c playwright-ct.config.ts"
-	}
-}
-```
+After core stability.
 
-`.github/workflows/tests.yaml`
-```YAML
-name: Tests
-on: [push]
+Add coverage for:
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npx playwright install --with-deps
-      - run: npm run test
-      - run: npm run test:ct
-```
+- [ ] Error states
+- [ ] Loading states
+- [ ] Empty states
+- [ ] Permission variations
+- [ ] Keyboard-only navigation
+- [ ] Boundary inputs
 
+Expand based on risk — not coverage metrics.
 
-# 11 When To Use Each Level
+# Phase 7 — CI & Performance Scaling
 
-| **Test Type** | **Tool** | **Scope** |
-| :-: | :-: | :-: |
-| Pure logic | Playwright | Node only |
-| React component | Playwright CT | Real browser, isolated |
-| Feature | Playwright | Full navigation |
-| Full app | Playwright | E2E |
+When suite grows:
 
-Single ecosystem.
+- [ ] Enable parallelization
+- [ ] Shard large test sets
+- [ ] Run headless in CI
+- [ ] Monitor flakiness weekly
+- [ ] Fail build on repeated regressions
+
+# Recommended Execution Order
+
+1. Define critical flows
+2. Add 10–20 high-value logic tests
+3. Add 5–10 component tests
+4. Add 3–5 E2E flows
+5. Integrate into CI
+6. Eliminate flakiness
+7. Expand intentionally
+
+# What NOT To Do
+
+- ❌ Start with 100 E2E tests
+- ❌ Chase 100% coverage
+- ❌ Test implementation details
+- ❌ Duplicate behavior across layers
+- ❌ Skip CI enforcement
+
+# Realistic 2-Week Milestone
+
+By end of week 2:
+
+- [ ] CI running Playwright
+- [ ] Core logic protected
+- [ ] Primary workflow covered
+- [ ] No flaky tests
+- [ ] Clear repository structure
+
+Not maximum coverage.
+Stable, business-aligned protection.
